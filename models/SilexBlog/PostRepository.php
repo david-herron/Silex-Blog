@@ -21,6 +21,7 @@ class PostRepository
     public function find($id) {
         $db_result = $this->app['db']->fetchAssoc('SELECT * FROM `posts` where id = ?', array((int) $id));
         // If no post is found for the given id, the result will be false.
+
         if ($db_result === false) {
             // Throw a custom 404 not found exception.
             throw new PostNotFoundException('A post with id=' . ((int) $id) . ' was not found!');
@@ -28,6 +29,22 @@ class PostRepository
         // Create a post instance given the data fetched from the database.
         $post_object = new Post($db_result['id'], $db_result['author'], $db_result['title'],
                                 $db_result['created_date'], $db_result['modified_date'], $db_result['body']);
+        // The data came from the database, so it is already persistent.
+        $post_object->setPersisted(true);
+
+        return $post_object;
+    }
+
+    //Look up posts by author
+    public function findByAuthor($authorName) {
+        $db_result = $this->app['db']->fetchAssoc('SELECT * FROM `posts` where author = ?', array($authorName));
+        // If no post is found for the given author, the result will be false.
+        if ($db_result === false) {
+            // Throw a custom 404 not found exception.
+            throw new PostNotFoundException('A post by =' . ($authorName) . ' was not found!');
+        }
+        $post_object = new Post($db_result['id'], $db_result['author'], $db_result['title'],
+            $db_result['created_date'], $db_result['modified_date'], $db_result['body']);
         // The data came from the database, so it is already persistent.
         $post_object->setPersisted(true);
 
@@ -71,7 +88,17 @@ class PostRepository
             // The post object has been persisted.
             $post_object->setPersisted(true);
         } else {
-            // update post
+            $this->app['db']->update('posts', array(
+                'author' => $post_object->getAuthor(),
+                'title' => $post_object->getTitle(),
+                'body' => $post_object->getBody(),
+                'modified_date' => date('Y-m-d H:i:s')), array(
+                    'id' => $post_object->getId()
+            ));
         }
+    }
+
+    public function deletePost(Post $post_object) {
+        $this->app['db']->delete('posts', array('id' => $post_object->getId()));
     }
 }

@@ -29,14 +29,16 @@ $app->register(new Silex\Provider\TwigServiceProvider(), array(
 $app->register(new Silex\Provider\DoctrineServiceProvider(), array(
     'db.options' => array(
         'driver'   => 'pdo_mysql',
-        'host'     => 'localhost',
+        'host'     => '127.0.0.1',
         'dbname'   => 'silex_blog_a9',
         'port'     => 3306,
         'username' => 'root',
-        'password' => '',
+        'password' => 'Orange1Orange2',
         'charset'   => 'utf8mb4',
     ),
 ));
+
+
 
 // Register a Post repository
 $app['repository.post'] = function ($app) {
@@ -85,7 +87,7 @@ $app->register(new Silex\Provider\SecurityServiceProvider(), array(
             //   | is an or
             // So, the regex specifies match either /user or /blog/new-post at the beginning of the given string.
             //   The string in this case is a path in our application.  The rest of the string is ignored.
-            'pattern' => '(^/user)|(^/blog/new-post)',
+            'pattern' => '(^/user)|(^/blog/new-post)|(^/blog/edit)|(^/blog/delete)|(^/blog/comment)',
             // Setting 'http' to true will use HTTP based authentication instead of a login form
             //'http' => true,
             // Use a HTML form to login
@@ -112,6 +114,9 @@ $app->register(new Silex\Provider\SecurityServiceProvider(), array(
     'security.access_rules' => array(
         // In order to access any path that starts with /blog/new-post, the user must have the ROLE_USER role.
         array('^/blog/new-post', 'ROLE_USER'),
+        array('^/blog/edit', 'ROLE_USER'),
+        array('^/blog/delete', 'ROLE_ADMIN'),
+        array('^/blog/comment', 'ROLE_COMMENTER'),
     ),
 ));
 
@@ -159,11 +164,13 @@ $app->get('/', function () use ($app) {
 $app->get('/blog/', function () use ($app) {
     // Use the function SilexBlog\PostRepository->findAll() to get all the posts in the database.
     $posts = $app['repository.post']->findAll();
-    
+
     // Set the page title variable.
     $page_title = 'List of All the Blog Posts';
+    //mysql_connect('127.0.0.1','root','Orange1Orange2');
 
     // Pass the page title and posts to twig to be rendered using the list_posts.twig template.
+
     return $app->render('list_posts.twig', array('page_title' => $page_title, 'posts' => $posts));
 })
 ->bind('findAllPosts');
@@ -189,6 +196,48 @@ $app->get('/blog/id/{id}', function ($id) use ($app) {
 
 // A controller to process the route for /blog/author/{author} where author is the post author.
 // Will be part of assignment 9.
+$app->get('/blog/author/{author}', function ($author) use ($app) {
+    // Use the function SilexBlog\PostRepository->findByAuthor($author) to get the specified post by its author.
+    $post = $app['repository.post']->findByAuthor($author);
+
+    // Set the page title to the blog post title and author
+    $page_title = $post->getTitle() . ' by ' . $post->getAuthor();
+
+    // Pass the page title and post to twig to be rendered using the list_posts.twig template.
+    return $app->render('list_posts.twig', array('page_title' => $page_title, 'posts' => array($post)));
+})
+->bind('findByAuthorName');
+
+//Editing a Post
+$app->match('/blog/edit/{id}', function (Request $request, $id) use ($app) {
+
+    $postQueue = $app['repository.post']->find($id);
+
+    $updateForm = $app->form($postQueue)
+        ->add('author',  TextType::class, array('constraints' => array(new Assert\NotBlank())))
+        ->add('title', TextType::class, array('constraints' => array(new Assert\NotBlank())))
+        ->add('body', TextareaType::class, array('constraints' => array(new Assert\NotBlank(), new Assert\Length(array('min' => 20)))))
+        ->getForm();
+
+    $updateForm->handleRequest($request);
+
+    if ($updateForm->isValid()) {
+
+        $newData = $updateForm->getData();
+
+        $app['repository.post']->save($newData);
+
+        // Redirect the user to the edited post.
+        return $app->redirect($app->path('findPost', array('id'=> $postQueue->getId())));
+    }
+
+
+    return $app->render('edit_posts.twig', array('updateForm' => $updateForm->createView()));
+
+})
+->bind('editPost');
+
+
 
 $app->match('/blog/new-post', function (Request $request) use ($app) {
     // Default data for the form.
@@ -232,6 +281,84 @@ $app->match('/blog/new-post', function (Request $request) use ($app) {
     return $app->render('new-post.twig', array('form' => $form->createView()));
 })
 ->bind('newPost');
+
+//Deleting a Post
+$app->match('/blog/delete/{id}', function (Request $request, $id) use ($app) {
+
+    $postToDelete = $app['repository.post']->find($id);
+
+    $deleteForm = $app->form($postToDelete)
+        ->add('author')
+        ->add('title')
+        ->add('body')
+        ->getForm();
+
+    $deleteForm->handleRequest($request);
+
+    $app['repository.post']->deletePost($postToDelete);
+
+
+    return $app->render('delete_post.twig', array('deleteForm' => $deleteForm->createView()));
+
+})
+->bind('deletePost');
+
+
+$app->match('/blog/comment/{id}', function (Request $request, $id) use ($app) {
+
+    $post = $app['repository.post']->find($id);
+
+    $page_title = $post->getTitle() . ' by ' . $post->getAuthor();
+    $post_body = $post->getBody();
+
+    $commentForm = $app->form()
+        ->add('comments', TextareaType::class, array('constraints' => array(new Assert\NotBlank(), new Assert\Length(array('min' => 20)))))
+        ->getForm();
+
+        $commentForm->handleRequest($request);
+
+        if($commentForm->isSubmitted() && $commentForm->isValid()){
+            $comment = $commentForm->getData();
+            $app['db']->insert('comments', array(
+                'userid' => 3,
+                'comments' => $app->escape($comment['comments']),
+                'created_date' => date('Y-m-d H:i:s'),
+                'post_id' => $post->getId()));
+        }
+
+
+    return $app->render('comment.twig', array('commentForm' => $commentForm->createView(), 'page_title' => $page_title,
+        'post_body' => $post_body));
+
+})
+->bind('addComment');
+
+$app->match('/user/new', function (Request $request) use ($app) {
+
+    $addUserForm = $app->form()
+    ->add('username',  TextType::class, array('constraints' => array(new Assert\NotBlank(), new Assert\Length(array('min' => 5)))))
+    ->add('password',  TextType::class, array('constraints' => array(new Assert\NotBlank())))
+        ->getForm();
+
+    $addUserForm->handleRequest($request);
+
+    if($addUserForm->isSubmitted() && $addUserForm->isValid()){
+        $new_user = $addUserForm->getData();
+        $plaintext_pass = $new_user['password'];
+        $hashed_pass = $app['security.default_encoder']->encodePassword($plaintext_pass, null);
+        $app['db']->insert('users', array(
+            'username' => $app->escape($new_user['username']),
+            'password' => $app->escape($hashed_pass)));
+    }
+
+    return $app->render('add_user.twig', array('addUserForm' => $addUserForm->createView()));
+});
+
+$app->match('user/delete/{id}', function ($id) use ($app) {
+    $app['db']->delete('users', array('id' => $id));
+    return 'user deleted';
+});
+
 
 // Return the service container used by web/index.php
 return $app;

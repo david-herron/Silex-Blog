@@ -12,6 +12,13 @@
     <li><a href="{{ path('findPost', {id: 1}) }}">{{ path('findPost', {id: 1}) }}</a> - view a specific post by its ID.</li>
     <li><a href="{{ path('newPost') }}">{{ path('newPost') }}</a> - form to create a new post.</li>
 </ul>
+<p>Added ones:</p>
+<ul>
+    <li><a href="{{ path('findByAuthorName', {author: 'David'}) }}">{{ path('findByAuthorName', {author: 'David'}) }}</a> - view a specific post by Author name.</li>
+    <li><a href="{{ path('editPost', {id: 1}) }}">{{ path('editPost', {id: 1}) }}</a> - Edit a blog post by id</li>
+    <p>delete post functionality is shown by viewing all posts</p>
+    <li><a href="{{ path('addComment', {id: 3}) }}">{{ path('addComment', {id: 3}) }}</a> - Add a comment to a blog post.</li>
+</ul>
 </p>
 <p>All routes that deal with users should be under /user.  Here are the existing ones:
 <ul>
@@ -27,7 +34,7 @@
     <li>username - password - roles</li>
     <li>admin - foo - ROLE_ADMIN, ROLE_USER</li>
     <li>testuser - foo - ROLE_USER</li>
-    <li>testuser2 - foo - ROLE_USER</li>
+    <li>testuser2 - foo - ROLE_COMMENTER</li>
 </ul>
 </body>
 </html>

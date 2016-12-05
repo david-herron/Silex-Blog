@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title></title>
+</head>
+<body>
+<h1>Edit Post</h1>
+
+
+<form method="post">
+     form_widget() renders the form view provided by the form object built using the form service provider
+    {{ form_widget(updateForm) }}
+
+    <input type="submit"/><input type="reset"/>
+</form>
+
+<br/><br/><br/><br/>
+
+Go the list of <a href="{{ path('findAllPosts') }}">all blog posts</a>.
+</body>
+</html>
